@@ -1,0 +1,11 @@
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\bin\Debug\PWC3OUtViewer.exe.config
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\bin\Debug\PWC3OUtViewer.exe
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\bin\Debug\PWC3OUtViewer.pdb
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\bin\Debug\PWC3OUtViewer.xml
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\obj\Debug\PWC3OUtViewer.vbproj.AssemblyReference.cache
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\obj\Debug\PWC3OUtViewer.Resources.resources
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\obj\Debug\PWC3OUtViewer.vbproj.GenerateResource.cache
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\obj\Debug\PWC3OUtViewer.vbproj.CoreCompileInputs.cache
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\obj\Debug\PWC3OUtViewer.exe
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\obj\Debug\PWC3OUtViewer.xml
+C:\_develope\PWC3OUtViewer\PWC3OUtViewer\obj\Debug\PWC3OUtViewer.pdb
