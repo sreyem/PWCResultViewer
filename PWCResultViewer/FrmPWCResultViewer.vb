@@ -1,11 +1,7 @@
-﻿
-Imports System.Globalization
+﻿Imports System.Globalization
 Imports System.IO
-Imports System.Linq
 Imports System.Text.RegularExpressions
-Imports System.Drawing
 Imports System.Drawing.Imaging
-Imports System.Windows.Forms
 Imports System.Windows.Forms.DataVisualization.Charting
 
 Public Class FrmPWCResultViewer
@@ -72,16 +68,34 @@ Public Class FrmPWCResultViewer
         End Get
     End Property
 
-#End Region
+    ' Status-Variable für den Umschalter (True = SW, False = Benthic)
+    Private isSwMode As Boolean = True
 
+    ' Farbdefinition für Benthic aus dem Benthic-Graphen auslesen oder festlegen
+    Private ReadOnly colorBenthic As Drawing.Color = Drawing.Color.SaddleBrown ' Oder z. B. chartMain.Series("Benthic").Color
+
+    Private WithEvents chartToolTip As New ToolTip()
+    Private lastHoveredArea As String = ""
+
+#End Region
 
 #Region " Form Lifecycle & Reset "
 
     Private Sub Form_Load(sender As Object, e As EventArgs) Handles MyBase.Load
 
         Me.Text = $"{AppTitle}"
-        Me.Size = New Drawing.Size(1450, 900)
+        Me.Size = New Drawing.Size(width:=1400, height:=900)
         Me.AllowDrop = True
+
+        ' 2. Fensterrand fixieren (Verhindert das Skalieren per Maus)
+        Me.FormBorderStyle = FormBorderStyle.FixedSingle
+
+        ' 3. Maximieren-Button deaktivieren (optional, aber empfohlen)
+        Me.MaximizeBox = False
+
+        ' 4. Minimale und maximale Größe auf den gleichen Wert setzen (Sicherheitsnetz)
+        Me.MinimumSize = Me.Size
+        Me.MaximumSize = Me.Size
 
         SetupMenuAndStatusStrip()
         SetupRadioButtons()
@@ -223,6 +237,8 @@ Public Class FrmPWCResultViewer
 
         chartMain.Series("Surface Water Max").Points.Clear()
         chartMain.Series("Benthic Max").Points.Clear()
+        If chartMain.Series.IndexOf("BoxPlotSeries") >= 0 Then chartMain.Series("BoxPlotSeries").Points.Clear()
+        If chartMain.Series.IndexOf("BoxPlotPoints") >= 0 Then chartMain.Series("BoxPlotPoints").Points.Clear()
         chartDetail.Series("Surface Water (Daily)").Points.Clear()
         chartDetail.Series("Benthic (Daily)").Points.Clear()
         summaryLegend.CustomItems.Clear()
@@ -233,6 +249,12 @@ Public Class FrmPWCResultViewer
 
         Me.Text = $"{AppTitle}"
         lblStatusFilePath.Text = "Drag & drop PWC file or File -> Open"
+
+
+        If chartMain.Titles.FindByName("BoxPlotTitle") IsNot Nothing Then
+            chartMain.Titles("BoxPlotTitle").Visible = False
+        End If
+
     End Sub
 
 #End Region
@@ -266,9 +288,14 @@ Public Class FrmPWCResultViewer
             .Font = New Drawing.Font("Segoe UI", 12.0!)
         }
 
+        Dim menuSaveYearMaxCsv As New ToolStripMenuItem("Save year max values as csv...", Nothing, AddressOf MenuSaveYearMaxCsv_Click) With {
+            .Font = New Drawing.Font("Segoe UI", 12.0!)
+        }
+
         menuFile.DropDownItems.Add(menuOpen)
         menuFile.DropDownItems.Add(menuProcessFolder)
         menuFile.DropDownItems.Add(menuSave)
+        menuFile.DropDownItems.Add(menuSaveYearMaxCsv)
         menuFile.DropDownItems.Add(menuReset)
         menuFile.DropDownItems.Add(New ToolStripSeparator())
         menuFile.DropDownItems.Add(menuExit)
@@ -286,6 +313,7 @@ Public Class FrmPWCResultViewer
         'menuHelp.DropDownItems.Add(menuShowDetailsHelp)
 
 
+
         menuHelp.DropDownItems.Add(New ToolStripSeparator()) ' Trennlinie zur besseren Übersicht
 
         menuStrip1.Items.Add(menuFile)
@@ -301,6 +329,59 @@ Public Class FrmPWCResultViewer
         }
         statusStrip1.Items.Add(lblStatusFilePath)
         Me.Controls.Add(statusStrip1)
+    End Sub
+
+    Private Sub MenuSaveYearMaxCsv_Click(sender As Object, e As EventArgs)
+        Dim activeFile As String = filePaths(currentSourceKey)
+
+        ' Prüfen, ob eine Datei geladen ist und Daten vorhanden sind
+        If String.IsNullOrEmpty(activeFile) OrElse Not allRecords.ContainsKey(currentSourceKey) OrElse allRecords(currentSourceKey).Count = 0 Then
+            MessageBox.Show("No data to save.", "", MessageBoxButtons.OK, MessageBoxIcon.Information)
+            Exit Sub
+        End If
+
+        ' Dateinamen gemäß Anforderung auf *_YearMax.csv setzen
+        Dim defaultFileName As String = Path.GetFileNameWithoutExtension(activeFile) & "_YearMax.csv"
+        Dim initialDirectory As String = Path.GetDirectoryName(activeFile)
+
+        Using sfd As New SaveFileDialog()
+            sfd.Filter = "CSV Files (*.csv)|*.csv"
+            sfd.FileName = defaultFileName
+            sfd.InitialDirectory = initialDirectory
+
+            If sfd.ShowDialog() = DialogResult.OK Then
+                SaveYearMaxCsv(sfd.FileName)
+            End If
+        End Using
+    End Sub
+
+    Private Sub SaveYearMaxCsv(outputPath As String)
+        Try
+            Dim records = allRecords(currentSourceKey)
+            If records.Count = 0 Then Exit Sub
+
+            ' Gruppierung nach Jahr (identisch mit PlotMainChart)
+            Dim yearlyGroups = records.GroupBy(Function(r) r.DateValue.Year).OrderBy(Function(g) g.Key).ToList()
+
+            Using writer As New StreamWriter(outputPath, False, System.Text.Encoding.UTF8)
+                ' Header wie gefordert: Year, Max Sw, Max Benthic
+                writer.WriteLine("Year, Sw (ppb),Benthic (ppb)")
+
+                For Each group In yearlyGroups
+                    Dim yr As Integer = group.Key
+                    Dim maxSw As Double = group.Max(Function(r) r.WaterCol)
+                    Dim maxBenthic As Double = group.Max(Function(r) r.Benthic)
+
+                    ' Speichern mit InvariantCulture (Punkt als Dezimaltrenner)
+                    writer.WriteLine(String.Format(CultureInfo.InvariantCulture, "{0}, {1:F6}, {2:F6}", yr, maxSw, maxBenthic))
+                Next
+            End Using
+
+            MessageBox.Show($"File saved at:{vbCrLf}{outputPath}", "Save Successful", MessageBoxButtons.OK, MessageBoxIcon.Information)
+
+        Catch ex As Exception
+            MessageBox.Show($"Error while saving the CSV file:{vbCrLf}{ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
     End Sub
 
     Private Sub MenuShowDetailsHelp_Click(sender As Object, e As EventArgs)
@@ -375,6 +456,8 @@ Public Class FrmPWCResultViewer
 
         Me.Controls.Add(pnlRadioContainer)
     End Sub
+
+
 
     Private Sub SetupLayout()
         chartSplitContainer = New SplitContainer() With {
@@ -456,6 +539,70 @@ Public Class FrmPWCResultViewer
         chartMain.Series.Add(seriesWater)
         chartMain.Series.Add(seriesBenthic)
 
+        ' Überschrift für den Boxplot erstellen und an die BoxPlotArea binden
+        Dim titleBoxPlot As New Title() With {
+            .Name = "BoxPlotTitle",
+            .Text = "Surface Water Yearly Max (ppb)",
+            .DockedToChartArea = "BoxPlotArea", ' Bindet den Titel direkt an die Boxplot-Fläche
+            .IsDockedInsideChartArea = False,   ' Platzierung knapp oberhalb des Plots
+            .Font = New Drawing.Font("Segoe UI", 14.0!, Drawing.FontStyle.Bold),
+            .ForeColor = Drawing.Color.Black,
+            .Visible = False
+        }
+
+        ' Zur Chart-Control hinzufügen (vorherige Exemplare zur Sicherheit entfernen)
+        If chartMain.Titles.FindByName("BoxPlotTitle") IsNot Nothing Then
+            chartMain.Titles.Remove(chartMain.Titles("BoxPlotTitle"))
+        End If
+        chartMain.Titles.Add(titleBoxPlot)
+
+        ' --- ChartArea & Serien für den Boxplot unter der Result Overview ---
+        Dim areaBox As New ChartArea("BoxPlotArea")
+        areaBox.Position.Auto = False
+        areaBox.Position.X = 72
+        areaBox.Position.Y = 55
+        areaBox.Position.Width = 26
+        areaBox.Position.Height = 40
+
+        ' Achsen ausblenden und Ränder auf 0 setzen
+        areaBox.AxisX.Enabled = AxisEnabled.False
+        areaBox.AxisY.Enabled = AxisEnabled.False
+        areaBox.InnerPlotPosition.Auto = False
+        areaBox.InnerPlotPosition.X = 0
+        areaBox.InnerPlotPosition.Y = 0
+        areaBox.InnerPlotPosition.Width = 100
+        areaBox.InnerPlotPosition.Height = 100
+
+        chartMain.ChartAreas.Add(areaBox)
+
+        ' Serie 1: Boxplot-Struktur (Transparent / Ohne Füllung)
+        Dim seriesBoxPlot As New Series("BoxPlotSeries") With {
+            .ChartType = SeriesChartType.BoxPlot,
+            .ChartArea = "BoxPlotArea",
+            .IsVisibleInLegend = False,
+            .Color = Drawing.Color.FromArgb(0, 255, 255, 255), ' Transparentes Inneres
+            .BorderColor = Drawing.Color.ForestGreen,           ' Rahmen & Whisker in Grün
+            .BorderWidth = 2
+        }
+
+        seriesBoxPlot("BoxPlotTransparentColor") = "Transparent"
+        seriesBoxPlot("BoxPlotWhiskerPercentile") = "0"
+        seriesBoxPlot("BoxPlotShowMedian") = "True"
+        seriesBoxPlot("BoxPlotShowAverage") = "False"
+
+        ' Serie 2: Einzelpunkte
+        Dim seriesBoxPoints As New Series("BoxPlotPoints") With {
+            .ChartType = SeriesChartType.Point,
+            .ChartArea = "BoxPlotArea",
+            .IsVisibleInLegend = False,
+            .MarkerStyle = MarkerStyle.Circle,
+            .MarkerSize = 6,
+            .Color = Drawing.Color.RoyalBlue
+        }
+
+        chartMain.Series.Add(seriesBoxPlot)
+        chartMain.Series.Add(seriesBoxPoints)
+
     End Sub
 
     Private Sub SetupDetailChart()
@@ -526,6 +673,10 @@ Public Class FrmPWCResultViewer
         End If
 
         DisplayCurrentSource()
+
+        If chartMain.Titles.FindByName("BoxPlotTitle") IsNot Nothing Then
+            chartMain.Titles("BoxPlotTitle").Visible = True
+        End If
 
     End Sub
 
@@ -1125,6 +1276,29 @@ Public Class FrmPWCResultViewer
         End If
     End Sub
 
+
+
+    Private Sub SetBoxPlotVisible(visible As Boolean)
+        ' 1. Serien ein-/ausblenden
+        If chartMain.Series.FindByName("BoxPlotSeries") IsNot Nothing Then
+            chartMain.Series("BoxPlotSeries").Enabled = visible
+        End If
+        If chartMain.Series.FindByName("BoxPlotPoints") IsNot Nothing Then
+            chartMain.Series("BoxPlotPoints").Enabled = visible
+        End If
+
+        ' 2. ChartArea ein-/ausblenden
+        If chartMain.ChartAreas.FindByName("BoxPlotArea") IsNot Nothing Then
+            chartMain.ChartAreas("BoxPlotArea").Visible = visible
+        End If
+
+        ' 3. Titel ein-/ausblenden
+        Dim title = chartMain.Titles.FindByName("BoxPlotTitle")
+        If title IsNot Nothing Then
+            title.Visible = visible
+        End If
+    End Sub
+
     Private Sub PlotMainChart()
         Dim records = allRecords(currentSourceKey)
 
@@ -1133,6 +1307,11 @@ Public Class FrmPWCResultViewer
 
         seriesWater.Points.Clear()
         seriesBenthic.Points.Clear()
+
+        Dim seriesBoxPlot = chartMain.Series("BoxPlotSeries")
+        Dim seriesBoxPoints = chartMain.Series("BoxPlotPoints")
+        seriesBoxPlot.Points.Clear()
+        seriesBoxPoints.Points.Clear()
 
         If records.Count = 0 Then Exit Sub
 
@@ -1165,7 +1344,115 @@ Public Class FrmPWCResultViewer
             seriesBenthic.Points(ptIndex).Tag = item.ActualDate
         Next
 
+        ' --- BEFÜLLUNG UND STYLING DES BOXPLOTS ---
+        If Not chkShowDetailChart.Checked Then
+            SetBoxPlotVisible(True)
+
+            ' 1. Daten und Design basierend auf dem aktuellen Modus (SW vs. Benthic) festlegen
+            Dim values As List(Of Double)
+            Dim currentTitle As String
+            Dim pointColor As Drawing.Color
+            Dim valuePrefix As String
+
+            If isSwMode Then
+                ' SW-Modus
+                values = yearlyMaxWater.Select(Function(x) x.Value).OrderBy(Function(v) v).ToList()
+                currentTitle = "Surface Water Yearly max (ppb)"
+                valuePrefix = "SW Max"
+
+                ' Dynamisch die Farbe der SW-Serie auslesen (mit Fallback, falls der Name abweicht)
+                Dim targetSeries = chartMain.Series.FindByName("SW") ' <-- Falls deine Serie anders heißt, hier anpassen (z.B. "Water")
+                If targetSeries IsNot Nothing Then
+                    pointColor = targetSeries.Color
+                Else
+                    pointColor = Drawing.Color.RoyalBlue ' Standardfarbe, falls "SW" nicht gefunden wird
+                End If
+            Else
+                ' Benthic-Modus
+                values = yearlyMaxBenthic.Select(Function(x) x.Value).OrderBy(Function(v) v).ToList()
+                currentTitle = "Benthic Yearly Max (ppb)"
+                valuePrefix = "Benthic Max"
+
+                ' Auch für Benthic optional prüfen, ob eine Serie existiert, oder die feste Farbe nutzen
+                Dim benthicSeries = chartMain.Series.FindByName("Benthic")
+                If benthicSeries IsNot Nothing Then
+                    pointColor = benthicSeries.Color
+                Else
+                    pointColor = Drawing.Color.SandyBrown ' Hellbraun / Benthic-Ton
+                End If
+            End If
+
+            ' 2. Titel des Boxplots aktualisieren
+            Dim boxTitle = chartMain.Titles.FindByName("BoxPlotTitle")
+            If boxTitle IsNot Nothing Then
+                boxTitle.Text = currentTitle
+            End If
+
+            ' 3. Datenpunkte und Serien zurücksetzen & befüllen
+            seriesBoxPoints.Points.Clear()
+
+            If values.Count > 0 Then
+                For Each val As Double In values
+                    Dim ptIdx As Integer = seriesBoxPoints.Points.AddXY(1.0, val)
+                    seriesBoxPoints.Points(ptIdx).ToolTip = $"{valuePrefix}: {val:F4} ppb"
+                Next
+
+                ' Boxplot an Punkte-Serie knüpfen
+                seriesBoxPlot("BoxPlotSeries") = "BoxPlotPoints"
+                seriesBoxPlot.Points.Clear()
+
+                ' Farben zuweisen (Punkte in der aktiven Farbe, Box-Rahmen in Grün)
+                seriesBoxPoints.Color = pointColor
+                seriesBoxPlot.BorderColor = Drawing.Color.Black
+                seriesBoxPlot.Color = Drawing.Color.FromArgb(0, 255, 255, 255)
+
+                ' 4. Min, Max, Median Beschriftungen setzen (rechtsbündig mit Leerzeichen)
+                Dim minVal As Double = values.First()
+                Dim maxVal As Double = values.Last()
+                Dim medianVal As Double
+                Dim count As Integer = values.Count
+
+                If count Mod 2 = 0 Then
+                    medianVal = (values(count \ 2 - 1) + values(count \ 2)) / 2.0
+                Else
+                    medianVal = values(count \ 2)
+                End If
+
+                Dim labelFont As New Drawing.Font("Segoe UI", 12.0!, Drawing.FontStyle.Bold)
+
+                Dim minPoint = seriesBoxPoints.Points.FirstOrDefault(Function(p) p.YValues(0) = minVal)
+                If minPoint IsNot Nothing Then
+                    minPoint.Label = $"              Min: {minVal:F2}"
+                    minPoint.Font = labelFont
+                    minPoint.LabelForeColor = Drawing.Color.Black
+                    minPoint("LabelStyle") = "Right"
+                End If
+
+                Dim maxPoint = seriesBoxPoints.Points.FirstOrDefault(Function(p) p.YValues(0) = maxVal)
+                If maxPoint IsNot Nothing Then
+                    maxPoint.Label = $"              Max: {maxVal:F2}"
+                    maxPoint.Font = labelFont
+                    maxPoint.LabelForeColor = Drawing.Color.Black
+                    maxPoint("LabelStyle") = "Right"
+                End If
+
+                Dim medianPoint = seriesBoxPoints.Points.OrderBy(Function(p) Math.Abs(p.YValues(0) - medianVal)).FirstOrDefault()
+                If medianPoint IsNot Nothing AndAlso medianPoint IsNot minPoint AndAlso medianPoint IsNot maxPoint Then
+                    medianPoint.Label = $"              Med: {medianVal:F2}"
+                    medianPoint.Font = labelFont
+                    medianPoint.LabelForeColor = Drawing.Color.Black
+                    medianPoint("LabelStyle") = "Right"
+                End If
+
+                ' X-Achsen-Limits zur Platzierung sichern
+                Dim boxArea = chartMain.ChartAreas(seriesBoxPoints.ChartArea)
+                boxArea.AxisX.Minimum = 0.0
+                boxArea.AxisX.Maximum = 2.5
+            End If
+        End If
+
         chartMain.ChartAreas("MainArea").RecalculateAxesScale()
+        chartMain.ChartAreas("BoxPlotArea").RecalculateAxesScale()
 
         If yearlyGroups.Any() Then
             UpdateDetailChart(yearlyGroups.First().Key)
@@ -1334,6 +1621,12 @@ Public Class FrmPWCResultViewer
             If fbd.ShowDialog() = DialogResult.OK Then
                 ' Ruft die bereits erstellte Batch-Methode für den gewählten Ordner auf
                 ProcessDirectoryBatch(fbd.SelectedPath)
+
+
+                If chartMain.Titles.FindByName("BoxPlotTitle") IsNot Nothing Then
+                    chartMain.Titles("BoxPlotTitle").Visible = True
+                End If
+
                 MessageBox.Show("Batch processing completed!", "Process Folder", MessageBoxButtons.OK, MessageBoxIcon.Information)
             End If
         End Using
@@ -1490,6 +1783,7 @@ Public Class FrmPWCResultViewer
     Private Sub OnShowDetailChart_CheckedChanged(sender As Object, e As EventArgs)
         If chartSplitContainer IsNot Nothing Then
             chartSplitContainer.Panel2Collapsed = Not chkShowDetailChart.Checked
+            SetBoxPlotVisible(Not chkShowDetailChart.Checked)
         End If
     End Sub
 
@@ -1525,12 +1819,44 @@ Public Class FrmPWCResultViewer
     ' --- Chart Interaction Events ---
 
     Private Sub chartMain_MouseMove(sender As Object, e As MouseEventArgs) Handles chartMain.MouseMove
+
         Dim result As HitTestResult = chartMain.HitTest(e.X, e.Y)
-        If result.ChartElementType = ChartElementType.DataPoint Then
-            chartMain.Cursor = Cursors.Hand
-        Else
-            chartMain.Cursor = Cursors.Default
+
+        If result IsNot Nothing Then
+            Dim isOverBoxPlot As Boolean = False
+
+            ' Prüfen, ob die Maus über der BoxPlotArea, den Serien oder dem Title ist
+            If (result.ChartArea IsNot Nothing AndAlso result.ChartArea.Name = "BoxPlotArea") OrElse
+           (result.Series IsNot Nothing AndAlso (result.Series.Name = "BoxPlotSeries" OrElse result.Series.Name = "BoxPlotPoints")) OrElse
+           (result.Object IsNot Nothing AndAlso TypeOf result.Object Is Title AndAlso CType(result.Object, Title).Name = "BoxPlotTitle") Then
+
+                isOverBoxPlot = True
+            End If
+
+            ' Cursor & Tooltip anpassen
+            If isOverBoxPlot Then
+                chartMain.Cursor = Cursors.Hand ' Hand-Symbol zur Verdeutlichung der Klickbarkeit
+
+                If lastHoveredArea <> "BoxPlotArea" Then
+                    chartToolTip.SetToolTip(chartMain, "Click to switch Surface Water <-> Benthic System")
+                    lastHoveredArea = "BoxPlotArea"
+                End If
+            Else
+                If lastHoveredArea = "BoxPlotArea" Then
+                    chartMain.Cursor = Cursors.Default
+                    chartToolTip.RemoveAll()
+                    lastHoveredArea = ""
+                End If
+            End If
+
+            If result.ChartElementType = ChartElementType.DataPoint Then
+                chartMain.Cursor = Cursors.Hand
+            Else
+                chartMain.Cursor = Cursors.Default
+            End If
         End If
+
+
     End Sub
 
     Private Sub chartDetail_MouseMove(sender As Object, e As MouseEventArgs) Handles chartDetail.MouseMove
@@ -1544,6 +1870,23 @@ Public Class FrmPWCResultViewer
 
     Private Sub chartMain_MouseClick(sender As Object, e As MouseEventArgs) Handles chartMain.MouseClick
         Dim result As HitTestResult = chartMain.HitTest(e.X, e.Y)
+        ' Prüfen, ob mit der linken Maustaste geklickt wurde
+        If e.Button = MouseButtons.Left Then
+            ' Prüfen, ob der Klick auf die BoxPlotArea oder die Serien des Boxplots ging
+            If result IsNot Nothing AndAlso
+          (result.ChartArea?.Name = "BoxPlotArea" OrElse
+           (result.Series IsNot Nothing AndAlso (result.Series.Name = "BoxPlotSeries" OrElse result.Series.Name = "BoxPlotPoints"))) Then
+
+                ' Modus umschalten (SW <-> Benthic)
+                isSwMode = Not isSwMode
+
+                ' Chart mit den neuen Daten & Farben aktualisieren
+                PlotMainChart()
+                Exit Sub
+            End If
+        End If
+
+
         If result.ChartElementType = ChartElementType.DataPoint Then
             Dim point As DataPoint = result.Series.Points(result.PointIndex)
             If point.Tag IsNot Nothing AndAlso TypeOf point.Tag Is DateTime Then
@@ -1574,6 +1917,8 @@ Public Class FrmPWCResultViewer
     Private Sub chartDetail_MouseDoubleClick(sender As Object, e As MouseEventArgs) Handles chartDetail.MouseDoubleClick
         chartDetail.ChartAreas("DetailArea").AxisX.ScaleView.ZoomReset(0)
     End Sub
+
+
 
 #End Region
 
