@@ -22,14 +22,298 @@ PWCResultViewer
   Ressourcenzuordnungen, die diese stark typisierte Ressourcenklasse verwenden.
 </summary>
 </member>
+<member name="T:PWCResultViewer.FrmPWCResultViewer">
+ <summary>
+ Main form class for viewing PWC (Pesticide Water Calculator) output results,
+ displaying yearly maximum concentrations, box plots, and detailed daily values.
+ </summary>
+</member>
+<member name="P:PWCResultViewer.FrmPWCResultViewer.MainChartControl">
+ <summary>
+ Provides public access to the main chart control for external integration (e.g., Main.vb).
+ </summary>
+</member>
+<member name="T:PWCResultViewer.FrmPWCResultViewer.DataRecord">
+ <summary>
+ Structure representing daily data entries for surface water and benthic concentrations.
+ </summary>
+</member>
+<member name="F:PWCResultViewer.FrmPWCResultViewer.filePaths">
+ <summary>
+ Stores loaded output file paths mapped by compound source type (Parent, Daughter, Granddaughter).
+ </summary>
+</member>
+<member name="F:PWCResultViewer.FrmPWCResultViewer.allRecords">
+ <summary>
+ Stores lists of parsed data records mapped by compound source type.
+ </summary>
+</member>
+<member name="F:PWCResultViewer.FrmPWCResultViewer.currentSourceKey">
+ <summary>
+ Currently selected active data source compound key (default: "Parent").
+ </summary>
+</member>
+<member name="P:PWCResultViewer.FrmPWCResultViewer.AppTitle">
+ <summary>
+ Retrieves dynamic application title and version from application metadata.
+ </summary>
+</member>
+<member name="F:PWCResultViewer.FrmPWCResultViewer.isSwMode">
+ <summary>
+ Mode switch status for the box plot (True = Surface Water, False = Benthic System).
+ </summary>
+</member>
+<member name="F:PWCResultViewer.FrmPWCResultViewer.colorBenthic">
+ <summary>
+ Default color definition for Benthic visualization.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.Form_Load(System.Object,System.EventArgs)">
+ <summary>
+ Event handler triggered when the form is initially loaded.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.CheckCMDArgs">
+ <summary>
+ Parses and executes command-line arguments for automated or batch operations.
+ </summary>
+</member>
 <member name="M:PWCResultViewer.FrmPWCResultViewer.ProcessDirectoryBatch(System.String)">
  <summary>
- Verarbeitet alle *.out- und *.csv-Dateien in einem Ordner und speichert automatisch die Charts als GIF.
+ Processes all *.out and *.csv files in a specified directory and exports charts to GIF format.
  </summary>
+ <param name="directoryPath">Target directory path to scan for output files.</param>
 </member>
 <member name="M:PWCResultViewer.FrmPWCResultViewer.SaveChartToGif(System.String)">
  <summary>
- Hilfsmethode zum direkten Speichern des Charts als GIF an einem Zielpfad
+ Saves the main chart control as a GIF image file at the specified output path.
+ </summary>
+ <param name="outputPath">Target destination file path for the GIF image.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.ResetAppData">
+ <summary>
+ Resets application state, clearing data containers, chart series, and active UI elements.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.SetupMenuAndStatusStrip">
+ <summary>
+ Builds and configures the main menu bar structure and status strip controls.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.MenuSaveYearMaxCsv_Click(System.Object,System.EventArgs)">
+ <summary>
+ Handles user menu request to export calculated annual maximum concentrations to a CSV file.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.SaveYearMaxCsv(System.String)">
+ <summary>
+ Exports calculated annual maximum surface water and benthic values to a CSV file.
+ </summary>
+ <param name="outputPath">Output file destination path.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.MenuShowDetailsHelp_Click(System.Object,System.EventArgs)">
+ <summary>
+ Displays help information dialog for the 'Show Details' functionality.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.SetupRadioButtons">
+ <summary>
+ Creates and places input data source selection radio buttons and options panel.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.SetupLayout">
+ <summary>
+ Configures the split container layout structure for primary and detail chart controls.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.SetupMainChart">
+ <summary>
+ Sets up chart areas, axes, titles, legends, and series for the main chart control.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.SetupDetailChart">
+ <summary>
+ Configures chart area, series, and interaction parameters for the detailed daily chart control.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.ProcessSelectedFile(System.String)">
+ <summary>
+ Inspects, branches, and processes a user-selected file path according to file type specifications.
+ </summary>
+ <param name="filePath">Target file path string to process.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.IsLegacyFile(System.String)">
+ <summary>
+ Checks if the given filename corresponds to legacy PWC CSV format patterns.
+ </summary>
+ <param name="fileName">Name of the target file.</param>
+ <returns>True if legacy CSV file pattern matches; otherwise False.</returns>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.ProcessLegacyFile(System.String)">
+ <summary>
+ Handles file discovery and data ingestion for legacy PWC CSV output files.
+ </summary>
+ <param name="filePath">Primary legacy file path.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.LoadLegacyCsvFile(System.String,System.Collections.Generic.List{PWCResultViewer.FrmPWCResultViewer.DataRecord})">
+ <summary>
+ Reads and parses records from a single legacy CSV output file into target record container.
+ </summary>
+ <param name="filePath">Target legacy CSV file path.</param>
+ <param name="targetList">Data record list destination container.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.ProcessPwc3File(System.String)">
+ <summary>
+ Handles file discovery and data parsing for standard PWC 3 *.out output files.
+ </summary>
+ <param name="filePath">Target PWC 3 file path.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.LoadPwc3OutFile(System.String,System.Collections.Generic.List{PWCResultViewer.FrmPWCResultViewer.DataRecord})">
+ <summary>
+ Loads and parses daily water column and benthic records from a PWC 3 *.out file.
+ </summary>
+ <param name="filePath">Path to target standard PWC 3 output file.</param>
+ <param name="targetList">Data record destination collection.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.FindMatchingFile(System.String,System.String,System.String)">
+ <summary>
+ Searches directory for files matching specified prefix and suffix patterns.
+ </summary>
+ <param name="dir">Directory path to search within.</param>
+ <param name="prefix">File prefix pattern string.</param>
+ <param name="suffix">File suffix pattern string.</param>
+ <returns>Matching full file path string if found; otherwise Nothing.</returns>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.LoadSummaryFileForCurrentSource(System.String)">
+ <summary>
+ Loads associated summary metadata for the current active source and updates the summary legend.
+ </summary>
+ <param name="mainFilePath">Loaded primary data file path.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.LoadLegacySummaryFile(System.String)">
+ <summary>
+ Parses legacy text summary files (*.txt) and attaches metrics to the result overview legend.
+ </summary>
+ <param name="mainFilePath">Path to the active legacy data file.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.AddLegacyValueToSummary(System.Collections.Generic.Dictionary{System.String,System.String},System.String,System.String,System.String,System.Boolean)">
+ <summary>
+ Helper routine to search legacy key-value dictionary and add parsed metric to summary legend.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.ExtractAndAddValue(System.String,System.String,System.String,System.Boolean)">
+ <summary>
+ Helper routine parsing numerical values from raw text and displaying formatted summary legend items.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.LoadPwc3SummaryFile(System.String)">
+ <summary>
+ Parses standard PWC 3 summary text files (*_summary.txt) and adds entries to the summary legend.
+ </summary>
+ <param name="mainFilePath">Path to the active PWC 3 output file.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.GetValueFromHeader(System.String,System.String,System.String,System.Boolean)">
+ <summary>
+ Helper function matching header position to extract specific numerical field values from data row strings.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.DisplayCurrentSource">
+ <summary>
+ Updates current active compound selection title display and triggers chart rendering routines.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.SetBoxPlotVisible(System.Boolean)">
+ <summary>
+ Controls visibility state of the box plot series, area, and title.
+ </summary>
+ <param name="visible">True to make box plot controls visible; False to hide.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.PlotMainChart">
+ <summary>
+ Calculates annual peak concentrations, binds values to main chart series, and constructs box plot statistics.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.UpdateDetailChart(System.Int32)">
+ <summary>
+ Updates daily detailed concentration chart series for a targeted calendar year.
+ </summary>
+ <param name="selectedYear">Calendar year integer to query and plot.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.AddSummaryLegendItem(System.String,System.String)">
+ <summary>
+ Formats and appends a structured custom key-value item entry to the result summary legend.
+ </summary>
+ <param name="label">Metric description text label.</param>
+ <param name="value">Metric formatted value string.</param>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.MenuOpen_Click(System.Object,System.EventArgs)">
+ <summary>
+ Handles user file selection dialog to open and parse a PWC output file.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.MenuReset_Click(System.Object,System.EventArgs)">
+ <summary>
+ Clears loaded application data and resets user interface views to initial state.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.MenuSaveAsGif_Click(System.Object,System.EventArgs)">
+ <summary>
+ Exports the current main chart display area to a GIF image file.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.MenuProcessFolder_Click(System.Object,System.EventArgs)">
+ <summary>
+ Prompts user to choose a directory and batch-processes all matching files within it.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.MenuHelp_Click(System.Object,System.EventArgs)">
+ <summary>
+ Displays help dialog window providing instructions on generating output files in PWC 3.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.OnShowDetailChart_CheckedChanged(System.Object,System.EventArgs)">
+ <summary>
+ Toggles the visibility state of the lower detail chart panel and box plot display overlay.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.OnSourceRadioButton_CheckedChanged(System.Object,System.EventArgs)">
+ <summary>
+ Handles active compound data source selection changes via radio button toggle.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.Form_DragEnter(System.Object,System.Windows.Forms.DragEventArgs)">
+ <summary>
+ Handles file drag-enter events to allow drag-and-drop file imports.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.Form_DragDrop(System.Object,System.Windows.Forms.DragEventArgs)">
+ <summary>
+ Handles file drop events to trigger immediate parsing of dropped file paths.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.chartMain_MouseMove(System.Object,System.Windows.Forms.MouseEventArgs)">
+ <summary>
+ Handles mouse hover interactions over the main chart area, adjusting cursor styles and tooltips dynamically.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.chartDetail_MouseMove(System.Object,System.Windows.Forms.MouseEventArgs)">
+ <summary>
+ Adjusts mouse cursor icon when hovering over data points in the detail chart view.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.chartMain_MouseClick(System.Object,System.Windows.Forms.MouseEventArgs)">
+ <summary>
+ Handles mouse click events on the main chart area for box plot mode toggling and detail view opening.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.chartDetail_MouseWheel(System.Object,System.Windows.Forms.MouseEventArgs)">
+ <summary>
+ Handles mouse wheel scrolling events over the detail chart to execute dynamic zooming.
+ </summary>
+</member>
+<member name="M:PWCResultViewer.FrmPWCResultViewer.chartDetail_MouseDoubleClick(System.Object,System.Windows.Forms.MouseEventArgs)">
+ <summary>
+ Resets zoom levels on the detail chart upon mouse double-click.
  </summary>
 </member>
 </members>

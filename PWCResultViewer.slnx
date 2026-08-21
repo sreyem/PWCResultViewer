@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="PWCResultViewer/PWCResultViewer.vbproj" Id="fad050f5-a6d9-4c2e-adae-f27cdcdee858" />
+  <Project Path="Test_IO/Test_IO.vbproj" Id="0cf8263d-e351-4cf8-8fb0-bec9cc0ad234" />
 </Solution>
